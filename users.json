@@ -1,0 +1,23 @@
+[
+  {
+    "Id": 1,
+    "Username": "admin",
+    "Email": "admin@travel.com",
+    "Role": "Admin",
+    "Password": "password123"
+  },
+  {
+    "Id": 2,
+    "Username": "hari",
+    "Email": "hari_salaminvo@abv.bg",
+    "Role": "Regular",
+    "Password": "salam123"
+  },
+  {
+    "Id": 3,
+    "Username": "hari",
+    "Email": "salaminov@abv.bg",
+    "Role": "Regular",
+    "Password": "hari123"
+  }
+]
