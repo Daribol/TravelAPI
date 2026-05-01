@@ -1,4 +1,5 @@
-﻿using TravelAPI.Models;
+﻿using TravelAPI.DTOs;
+using TravelAPI.Models;
 
 namespace TravelAPI.Interfaces
 {
@@ -7,18 +8,15 @@ namespace TravelAPI.Interfaces
     /// </summary>
     public interface IUserService
     {
-        /// <summary>
-        /// Authenticates a user based on their username and password.
-        /// </summary>
         User Authenticate(string username, string password);
 
-        List<User> GetAll();
+        List<UserResponseDto> GetAll();
 
-        User GetById(int id);
+        UserResponseDto GetById(int id);
 
-        User Create(User user);
+        UserResponseDto Create(UserRegisterDto registerDto);
 
-        bool Update(int id, User updatedUser);
+        bool Update(int id, UserRegisterDto updatedUserDto);
 
         bool Delete(int id);
     }

@@ -1,119 +1,106 @@
-﻿using System.Text.Json;
+﻿using Microsoft.EntityFrameworkCore;
+using TravelAPI.Data;
+using TravelAPI.DTOs;
 using TravelAPI.Interfaces;
 using TravelAPI.Models;
 
 namespace TravelAPI.Services
 {
-    /// <summary>
-    /// Service responsible for user management and authentication, storing data in a local JSON file.
-    /// </summary>
     public class UserService : IUserService
     {
-        // Define the file path for user data storage
-        private readonly string _filePath = "users.json";
+        private readonly TravelDbContext _context;
 
-        // --- HELPER METHODS FOR FILE I/O ---
-
-        private List<User> LoadUsers()
+        public UserService(TravelDbContext context)
         {
-            // If the file doesn't exist, create it with a default admin user
-            if (!File.Exists(_filePath))
-            {
-                var defaultUsers = new List<User>
-                {
-                    new User { Id = 1, Username = "admin", Password = "password123", Email = "admin@travel.com", Role = "Admin" }
-                };
-                SaveUsers(defaultUsers);
-                return defaultUsers;
-            }
-
-            var json = File.ReadAllText(_filePath);
-            return JsonSerializer.Deserialize<List<User>>(json) ?? new List<User>();
+            _context = context;
         }
 
-        private void SaveUsers(List<User> users)
-        {
-            // WriteIndented makes the JSON output readable and beautifully formatted
-            var options = new JsonSerializerOptions { WriteIndented = true };
-            var json = JsonSerializer.Serialize(users, options);
-            File.WriteAllText(_filePath, json);
-        }
-
-        // --- AUTHENTICATION ---
-
-        /// <summary>
-        /// Validates user credentials against the stored records.
-        /// </summary>
+        // 1. Аутентикира потребителя (връща целия модел за нуждите на AuthController)
         public User Authenticate(string username, string password)
         {
-            var users = LoadUsers();
-            // Look for a matching username AND password
-            return users.FirstOrDefault(u => u.Username == username && u.Password == password);
+            // Тук търсим директно в SQL таблицата Users
+            return _context.Users.FirstOrDefault(u => u.Username == username && u.Password == password);
         }
 
-        // --- CRUD OPERATIONS ---
-
-        public List<User> GetAll()
+        // 2. Връща списък от всички потребители, но само като безопасни DTO-та
+        public List<UserResponseDto> GetAll()
         {
-            return LoadUsers();
+            return _context.Users
+                .Select(u => new UserResponseDto
+                {
+                    Id = u.Id,
+                    Username = u.Username,
+                    Email = u.Email,
+                    Role = u.Role
+                })
+                .ToList();
         }
 
-        public User GetById(int id)
+        // 3. Връща конкретен потребител по ID (DTO формат)
+        public UserResponseDto GetById(int id)
         {
-            var users = LoadUsers();
-            return users.FirstOrDefault(u => u.Id == id);
-        }
+            var user = _context.Users.Find(id);
+            if (user == null) return null;
 
-        public User Create(User user)
-        {
-            var users = LoadUsers();
-
-            // Auto-generate ID
-            user.Id = users.Any() ? users.Max(u => u.Id) + 1 : 1;
-
-            // Set default role if not provided
-            if (string.IsNullOrEmpty(user.Role))
+            return new UserResponseDto
             {
-                user.Role = "Regular";
+                Id = user.Id,
+                Username = user.Username,
+                Email = user.Email,
+                Role = user.Role
+            };
+        }
+
+        // 4. Създава нов потребител от регистрационни данни
+        public UserResponseDto Create(UserRegisterDto registerDto)
+        {
+            var user = new User
+            {
+                Username = registerDto.Username,
+                Email = registerDto.Email,
+                Password = registerDto.Password, // В реална среда тук се прави Hash!
+                Role = string.IsNullOrEmpty(registerDto.Role) ? "Regular" : registerDto.Role
+            };
+
+            _context.Users.Add(user);
+            _context.SaveChanges();
+
+            return new UserResponseDto
+            {
+                Id = user.Id,
+                Username = user.Username,
+                Email = user.Email,
+                Role = user.Role
+            };
+        }
+
+        // 5. Обновява съществуващ потребител
+        public bool Update(int id, UserRegisterDto updatedUserDto)
+        {
+            var user = _context.Users.Find(id);
+            if (user == null) return false;
+
+            user.Username = updatedUserDto.Username;
+            user.Email = updatedUserDto.Email;
+            user.Role = updatedUserDto.Role;
+
+            if (!string.IsNullOrEmpty(updatedUserDto.Password))
+            {
+                user.Password = updatedUserDto.Password;
             }
 
-            users.Add(user);
-            SaveUsers(users); // Persist changes
-
-            return user;
-        }
-
-        public bool Update(int id, User updatedUser)
-        {
-            var users = LoadUsers();
-            var existingUser = users.FirstOrDefault(u => u.Id == id);
-
-            if (existingUser == null) return false;
-
-            // Update properties
-            existingUser.Username = updatedUser.Username;
-            existingUser.Email = updatedUser.Email;
-            existingUser.Role = updatedUser.Role;
-
-            // Update password only if a new one is provided
-            if (!string.IsNullOrEmpty(updatedUser.Password))
-            {
-                existingUser.Password = updatedUser.Password;
-            }
-
-            SaveUsers(users); // Persist changes
+            _context.SaveChanges();
             return true;
         }
 
+        // 6. Изтрива потребител
         public bool Delete(int id)
         {
-            var users = LoadUsers();
-            var user = users.FirstOrDefault(u => u.Id == id);
-
+            var user = _context.Users.Find(id);
             if (user == null) return false;
 
-            users.Remove(user);
-            SaveUsers(users); // Persist changes
+            _context.Users.Remove(user);
+            _context.SaveChanges();
             return true;
         }
     }

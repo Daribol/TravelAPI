@@ -29,6 +29,19 @@ namespace TravelAPI.Services
         // Finds a specific trip by ID, including its activities
         public Trip GetById(int id) => _context.Trips.Include(t => t.Activities).FirstOrDefault(t => t.Id == id);
 
+        public List<Trip> GetUsersTrips(string username)
+        {
+            // Намираме потребителя по име, за да му вземем ID-то
+            var user = _context.Users.FirstOrDefault(u => u.Username == username);
+            if (user == null) return new List<Trip>();
+
+            // Връщаме само пътуванията, чийто UserId съвпада
+            return _context.Trips
+                .Include(t => t.Activities)
+                .Where(t => t.UserId == user.Id)
+                .ToList();
+        }
+
         // Saves a new trip to the database
         public Trip Create(Trip trip)
         {

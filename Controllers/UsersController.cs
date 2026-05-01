@@ -1,103 +1,65 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TravelAPI.DTOs;
 using TravelAPI.Interfaces;
-using TravelAPI.Models;
 
 namespace TravelAPI.Controllers
 {
-    /// <summary>
-    /// Controller for managing user accounts. 
-    /// Protected by JWT authentication.
-    /// </summary>
-    [Authorize] // Requires a valid JWT token to access any method in this controller
-    [ApiController]
     [Route("api/[controller]")]
+    [ApiController]
+    // [Authorize(Roles = "Admin")] // Можеш да го сложиш тук, за да защитиш ЦЕЛИЯ контролер наведнъж
     public class UsersController : ControllerBase
     {
         private readonly IUserService _userService;
 
-        /// <summary>
-        /// Initializes a new instance of the <see cref="UsersController"/> class.
-        /// </summary>
-        /// <param name="userService">Injected service handling user business logic.</param>
         public UsersController(IUserService userService)
         {
             _userService = userService;
         }
 
-        /// <summary>
-        /// Retrieves the complete list of registered users.
-        /// </summary>
-        /// <returns>A list of User objects.</returns>
+        [Authorize(Roles = "Admin")]
         [HttpGet]
-        public IActionResult GetAllUsers()
+        public IActionResult GetAll()
         {
-            return Ok(_userService.GetAll());
+            var users = _userService.GetAll();
+            return Ok(users);
         }
 
-        /// <summary>
-        /// Retrieves detailed information for a specific user by their unique ID.
-        /// </summary>
-        /// <param name="id">The unique identifier of the user.</param>
-        /// <returns>The User object if found; otherwise, 404 Not Found.</returns>
+        [Authorize(Roles = "Admin")]
         [HttpGet("{id}")]
-        public IActionResult GetUserById(int id)
+        public IActionResult GetById(int id)
         {
             var user = _userService.GetById(id);
-
-            if (user == null)
-            {
-                return NotFound($"User with ID {id} not found.");
-            }
-
+            if (user == null) return NotFound(new { message = "User not found" });
             return Ok(user);
         }
 
-        /// <summary>
-        /// Creates a new user account.
-        /// </summary>
-        /// <param name="user">The user data to create.</param>
-        /// <returns>A 201 Created response with the new user.</returns>
+        [Authorize(Roles = "Admin")]
         [HttpPost]
-        public IActionResult CreateUser([FromBody] User user)
+        public IActionResult Create([FromBody] UserRegisterDto registerDto)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
 
-            var createdUser = _userService.Create(user);
-            return CreatedAtAction(nameof(GetUserById), new { id = createdUser.Id }, createdUser);
+            var createdUser = _userService.Create(registerDto);
+            return CreatedAtAction(nameof(GetById), new { id = createdUser.Id }, createdUser);
         }
 
-        /// <summary>
-        /// Updates an existing user's details.
-        /// </summary>
-        /// <param name="id">The ID of the user to update.</param>
-        /// <param name="updatedUser">The updated user data.</param>
-        /// <returns>A 204 No Content response on success, or 404 Not Found.</returns>
+        [Authorize(Roles = "Admin")]
         [HttpPut("{id}")]
-        public IActionResult UpdateUser(int id, [FromBody] User updatedUser)
+        public IActionResult Update(int id, [FromBody] UserRegisterDto updatedUserDto)
         {
-            if (!ModelState.IsValid) return BadRequest(ModelState);
-
-            var isUpdated = _userService.Update(id, updatedUser);
-
-            if (!isUpdated) return NotFound($"User with ID {id} not found.");
-
+            var success = _userService.Update(id, updatedUserDto);
+            if (!success) return NotFound();
             return NoContent();
         }
 
-        /// <summary>
-        /// Deletes a specific user account.
-        /// </summary>
-        /// <param name="id">The ID of the user to delete.</param>
-        /// <returns>A 204 No Content response on success, or 404 Not Found.</returns>
+        [Authorize(Roles = "Admin")]
         [HttpDelete("{id}")]
-        public IActionResult DeleteUser(int id)
+        public IActionResult Delete(int id)
         {
-            var isDeleted = _userService.Delete(id);
-
-            if (!isDeleted) return NotFound($"User with ID {id} not found.");
-
-            return NoContent();
+            var success = _userService.Delete(id);
+            if (!success) return NotFound();
+            return Ok(new { message = "User deleted successfully" });
         }
     }
 }

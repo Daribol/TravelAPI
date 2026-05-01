@@ -27,8 +27,15 @@ namespace TravelAPI.Controllers
         /// Retrieves the complete list of all trips.
         /// </summary>
         /// <returns>A 200 OK response containing a list of trips.</returns>
+        [Authorize]
         [HttpGet]
-        public IActionResult GetAll() => Ok(_tripService.GetAll());
+        public IActionResult GetAll()
+        {
+            // Взимаме името на логнатия потребител от JWT токена
+            var username = User.Identity.Name;
+            var myTrips = _tripService.GetUsersTrips(username);
+            return Ok(myTrips);
+        }
 
         /// <summary>
         /// Retrieves detailed information for a specific trip by its ID.
