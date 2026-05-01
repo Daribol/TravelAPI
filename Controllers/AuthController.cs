@@ -32,10 +32,10 @@ namespace TravelAPI.Controllers
         /// <param name="login">The user credentials (Username and Password).</param>
         /// <returns>A JWT token if successful; otherwise, 401 Unauthorized.</returns>
         [HttpPost("login")]
-        public IActionResult Login([FromBody] LoginModel login)
+        public async Task<IActionResult> Login([FromBody] LoginModel login)
         {
             // 1. Check if the user exists in our users.json file
-            var user = _userService.Authenticate(login.Username, login.Password);
+            var user = await _userService.AuthenticateAsync(login.Username, login.Password);
 
             // 2. If user is null, authentication failed
             if (user == null)
@@ -53,7 +53,8 @@ namespace TravelAPI.Controllers
                 Subject = new ClaimsIdentity(new[]
                 {
                     new Claim(ClaimTypes.Name, user.Username),
-                    new Claim(ClaimTypes.Role, user.Role) // Adding the role is a great practice!
+                    new Claim(ClaimTypes.Role, user.Role), // Adding the role is a great practice!
+                    new Claim(ClaimTypes.NameIdentifier, user.Id.ToString())
                 }),
 
                 // Token expiration set to 1 hour

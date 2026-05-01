@@ -11,5 +11,8 @@ namespace TravelAPI.Models
 
         [Range(0, 10000)]
         public decimal Cost { get; set; }
+
+        public int TripId { get; set; }
+        public Trip Trip { get; set; }
     }
 }

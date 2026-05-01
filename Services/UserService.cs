@@ -16,16 +16,16 @@ namespace TravelAPI.Services
         }
 
         // 1. Аутентикира потребителя (връща целия модел за нуждите на AuthController)
-        public User Authenticate(string username, string password)
+        public async Task<User> AuthenticateAsync(string username, string password)
         {
             // Тук търсим директно в SQL таблицата Users
-            return _context.Users.FirstOrDefault(u => u.Username == username && u.Password == password);
+            return await _context.Users.FirstOrDefaultAsync(u => u.Username == username && u.Password == password);
         }
 
         // 2. Връща списък от всички потребители, но само като безопасни DTO-та
-        public List<UserResponseDto> GetAll()
+        public async Task<List<UserResponseDto>> GetAllAsync()
         {
-            return _context.Users
+            return await _context.Users
                 .Select(u => new UserResponseDto
                 {
                     Id = u.Id,
@@ -33,13 +33,13 @@ namespace TravelAPI.Services
                     Email = u.Email,
                     Role = u.Role
                 })
-                .ToList();
+                .ToListAsync();
         }
 
         // 3. Връща конкретен потребител по ID (DTO формат)
-        public UserResponseDto GetById(int id)
+        public async Task<UserResponseDto> GetByIdAsync(int id)
         {
-            var user = _context.Users.Find(id);
+            var user = await _context.Users.FindAsync(id);
             if (user == null) return null;
 
             return new UserResponseDto
@@ -52,7 +52,7 @@ namespace TravelAPI.Services
         }
 
         // 4. Създава нов потребител от регистрационни данни
-        public UserResponseDto Create(UserRegisterDto registerDto)
+        public async Task<UserResponseDto> CreateAsync(UserRegisterDto registerDto)
         {
             var user = new User
             {
@@ -62,8 +62,8 @@ namespace TravelAPI.Services
                 Role = string.IsNullOrEmpty(registerDto.Role) ? "Regular" : registerDto.Role
             };
 
-            _context.Users.Add(user);
-            _context.SaveChanges();
+            await _context.Users.AddAsync(user);
+            await _context.SaveChangesAsync();
 
             return new UserResponseDto
             {
@@ -75,9 +75,9 @@ namespace TravelAPI.Services
         }
 
         // 5. Обновява съществуващ потребител
-        public bool Update(int id, UserRegisterDto updatedUserDto)
+        public async Task<bool> UpdateAsync(int id, UserRegisterDto updatedUserDto)
         {
-            var user = _context.Users.Find(id);
+            var user = await _context.Users.FindAsync(id);
             if (user == null) return false;
 
             user.Username = updatedUserDto.Username;
@@ -89,18 +89,18 @@ namespace TravelAPI.Services
                 user.Password = updatedUserDto.Password;
             }
 
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
             return true;
         }
 
         // 6. Изтрива потребител
-        public bool Delete(int id)
+        public async Task<bool> DeleteAsync(int id)
         {
-            var user = _context.Users.Find(id);
+            var user = await _context.Users.FindAsync(id);
             if (user == null) return false;
 
             _context.Users.Remove(user);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
             return true;
         }
     }

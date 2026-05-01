@@ -7,7 +7,7 @@ namespace TravelAPI.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    // [Authorize(Roles = "Admin")] // Можеш да го сложиш тук, за да защитиш ЦЕЛИЯ контролер наведнъж
+    [Authorize(Roles = "Admin")]
     public class UsersController : ControllerBase
     {
         private readonly IUserService _userService;
@@ -17,47 +17,44 @@ namespace TravelAPI.Controllers
             _userService = userService;
         }
 
-        [Authorize(Roles = "Admin")]
         [HttpGet]
-        public IActionResult GetAll()
+        public async Task<IActionResult> GetAll()
         {
-            var users = _userService.GetAll();
+            var users = await _userService.GetAllAsync();
             return Ok(users);
         }
 
-        [Authorize(Roles = "Admin")]
         [HttpGet("{id}")]
-        public IActionResult GetById(int id)
+        public async Task<IActionResult> GetById(int id)
         {
-            var user = _userService.GetById(id);
+            var user = await _userService.GetByIdAsync(id);
             if (user == null) return NotFound(new { message = "User not found" });
             return Ok(user);
         }
 
-        [Authorize(Roles = "Admin")]
         [HttpPost]
-        public IActionResult Create([FromBody] UserRegisterDto registerDto)
+        public async Task<IActionResult> Create([FromBody] UserRegisterDto registerDto)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
 
-            var createdUser = _userService.Create(registerDto);
+            var createdUser = await _userService.CreateAsync(registerDto);
             return CreatedAtAction(nameof(GetById), new { id = createdUser.Id }, createdUser);
         }
 
-        [Authorize(Roles = "Admin")]
         [HttpPut("{id}")]
-        public IActionResult Update(int id, [FromBody] UserRegisterDto updatedUserDto)
+        public async Task<IActionResult> Update(int id, [FromBody] UserRegisterDto updatedUserDto)
         {
-            var success = _userService.Update(id, updatedUserDto);
+            if (!ModelState.IsValid) return BadRequest(ModelState);
+
+            var success = await _userService.UpdateAsync(id, updatedUserDto);
             if (!success) return NotFound();
             return NoContent();
         }
 
-        [Authorize(Roles = "Admin")]
         [HttpDelete("{id}")]
-        public IActionResult Delete(int id)
+        public async Task<IActionResult> Delete(int id)
         {
-            var success = _userService.Delete(id);
+            var success = await _userService.DeleteAsync(id);
             if (!success) return NotFound();
             return Ok(new { message = "User deleted successfully" });
         }

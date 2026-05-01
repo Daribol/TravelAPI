@@ -1,9 +1,10 @@
 ﻿using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
+using System.Text.Json.Nodes;
 using TravelAPI.Data;
 using TravelAPI.DTOs;
 using TravelAPI.Interfaces;
 using TravelAPI.Models;
-using System.Text.Json.Nodes;
 
 namespace TravelAPI.Services
 {
@@ -15,74 +16,117 @@ namespace TravelAPI.Services
         private readonly HttpClient _httpClient;
         private readonly IConfiguration _configuration;
         private readonly TravelDbContext _context;
+        private readonly IHttpContextAccessor _httpContextAccessor;
 
-        public TripService(HttpClient httpClient, IConfiguration configuration, TravelDbContext context)
+        public TripService(HttpClient httpClient, IConfiguration configuration, TravelDbContext context, IHttpContextAccessor httpContextAccessor)
         {
             _httpClient = httpClient;
             _configuration = configuration;
             _context = context;
+            _httpContextAccessor = httpContextAccessor;
+        }
+
+        private int GetCurrentUserId()
+        {
+            var userIdClaim = _httpContextAccessor.HttpContext?.User.FindFirst(ClaimTypes.NameIdentifier);
+            return userIdClaim != null ? int.Parse(userIdClaim.Value) : 0;
         }
 
         // Retrieves all trips along with their associated activities
-        public List<Trip> GetAll() => _context.Trips.Include(t => t.Activities).ToList();
+        public async Task<List<TripResponseDto>> GetAllAsync()
+        {
+            int userId = GetCurrentUserId();
+            return await _context.Trips
+                .Where(t => t.UserId == userId)
+                .Select(t => new TripResponseDto
+                {
+                    Id = t.Id,
+                    Destination = t.Destination,
+                    Description = t.Description,
+                    Activities = t.Activities.Select(a => new ActivityDto { Id = a.Id, Name = a.Name, Cost = a.Cost }).ToList()
+                }).ToListAsync();
+        }
 
         // Finds a specific trip by ID, including its activities
-        public Trip GetById(int id) => _context.Trips.Include(t => t.Activities).FirstOrDefault(t => t.Id == id);
-
-        public List<Trip> GetUsersTrips(string username)
+        public async Task<TripResponseDto> GetByIdAsync(int id)
         {
-            // Намираме потребителя по име, за да му вземем ID-то
-            var user = _context.Users.FirstOrDefault(u => u.Username == username);
-            if (user == null) return new List<Trip>();
-
-            // Връщаме само пътуванията, чийто UserId съвпада
-            return _context.Trips
+            int userId = GetCurrentUserId();
+            var trip = await _context.Trips
                 .Include(t => t.Activities)
-                .Where(t => t.UserId == user.Id)
-                .ToList();
+                .FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
+
+            if (trip == null) return null;
+
+            return new TripResponseDto
+            {
+                Id = trip.Id,
+                Destination = trip.Destination,
+                Description = trip.Description,
+                Activities = trip.Activities.Select(a => new ActivityDto { Id = a.Id, Name = a.Name, Cost = a.Cost }).ToList()
+            };
         }
 
         // Saves a new trip to the database
-        public Trip Create(Trip trip)
+        public async Task<TripResponseDto> CreateAsync(TripCreateDto tripDto)
         {
+            var trip = new Trip
+            {
+                Destination = tripDto.Destination,
+                Description = tripDto.Description,
+                UserId = GetCurrentUserId()
+            };
+
             _context.Trips.Add(trip);
-            _context.SaveChanges();
-            return trip;
+            await _context.SaveChangesAsync();
+
+            return new TripResponseDto { Id = trip.Id, Destination = trip.Destination, Description = trip.Description };
         }
 
         // Updates destination and description for an existing trip
-        public bool Update(int id, Trip updatedTrip)
+        public async Task<bool> UpdateAsync(int id, TripCreateDto updatedTripDto)
         {
-            var existingTrip = _context.Trips.Find(id);
-            if (existingTrip == null) return false;
+            int userId = GetCurrentUserId();
+            var trip = await _context.Trips.FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
+            if (trip == null) return false;
 
-            existingTrip.Destination = updatedTrip.Destination;
-            existingTrip.Description = updatedTrip.Description;
+            trip.Destination = updatedTripDto.Destination;
+            trip.Description = updatedTripDto.Description;
 
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
             return true;
         }
 
         // Deletes a trip record by its ID
-        public bool Delete(int id)
+        public async Task<bool> DeleteAsync(int id)
         {
-            var trip = _context.Trips.Find(id);
+            int userId = GetCurrentUserId();
+            var trip = await _context.Trips.FirstOrDefaultAsync(t => t.Id == id && t.UserId == userId);
             if (trip == null) return false;
 
             _context.Trips.Remove(trip);
-            _context.SaveChanges();
+            await _context.SaveChangesAsync();
             return true;
         }
 
         // Adds a new activity to a specific trip
-        public Activity AddActivity(int tripId, Activity activity)
+        public async Task<ActivityDto> AddActivityAsync(int tripId, ActivityDto activityDto)
         {
-            var trip = _context.Trips.Find(tripId);
+            int userId = GetCurrentUserId();
+            var trip = await _context.Trips.FirstOrDefaultAsync(t => t.Id == tripId && t.UserId == userId);
             if (trip == null) return null;
 
-            trip.Activities.Add(activity);
-            _context.SaveChanges();
-            return activity;
+            var activity = new Activity
+            {
+                Name = activityDto.Name,
+                Cost = activityDto.Cost,
+                TripId = tripId
+            };
+
+            _context.Activities.Add(activity);
+            await _context.SaveChangesAsync();
+
+            activityDto.Id = activity.Id;
+            return activityDto;
         }
 
         /// <summary>

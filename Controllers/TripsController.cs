@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using TravelAPI.DTOs;
 using TravelAPI.Interfaces;
 using TravelAPI.Models;
 
@@ -29,11 +30,10 @@ namespace TravelAPI.Controllers
         /// <returns>A 200 OK response containing a list of trips.</returns>
         [Authorize]
         [HttpGet]
-        public IActionResult GetAll()
+        public async Task<IActionResult> GetAll()
         {
             // Взимаме името на логнатия потребител от JWT токена
-            var username = User.Identity.Name;
-            var myTrips = _tripService.GetUsersTrips(username);
+            var myTrips = await _tripService.GetAllAsync();
             return Ok(myTrips);
         }
 
@@ -42,10 +42,11 @@ namespace TravelAPI.Controllers
         /// </summary>
         /// <param name="id">The unique identifier of the trip.</param>
         /// <returns>A 200 OK with the trip data, or a 404 Not Found if it doesn't exist.</returns>
+        [Authorize]
         [HttpGet("{id}")]
-        public IActionResult GetById(int id)
+        public async Task<IActionResult> GetById(int id)
         {
-            var trip = _tripService.GetById(id);
+            var trip = await _tripService.GetByIdAsync(id);
             if (trip == null) return NotFound($"Trip with ID {id} not found.");
             return Ok(trip);
         }
@@ -76,12 +77,12 @@ namespace TravelAPI.Controllers
         /// <returns>A 201 Created response with the newly generated trip.</returns>
         [Authorize] // Requires a valid JWT token
         [HttpPost]
-        public IActionResult Create([FromBody] Trip trip)
+        public async Task<IActionResult> Create([FromBody] TripCreateDto trip)
         {
             // Validate the incoming model against data annotations
             if (!ModelState.IsValid) return BadRequest(ModelState);
 
-            var createdTrip = _tripService.Create(trip);
+            var createdTrip = await _tripService.CreateAsync(trip);
 
             // Returns a 201 status code and a Location header pointing to the GetById endpoint
             return CreatedAtAction(nameof(GetById), new { id = createdTrip.Id }, createdTrip);
@@ -95,12 +96,12 @@ namespace TravelAPI.Controllers
         /// <returns>A 204 No Content response on success, or 404 Not Found if the trip doesn't exist.</returns>
         [Authorize] // Requires a valid JWT token
         [HttpPut("{id}")]
-        public IActionResult Update(int id, [FromBody] Trip updatedTrip)
+        public async Task<IActionResult> Update(int id, [FromBody] TripCreateDto updatedTripDto)
         {
             // Validate the incoming model
             if (!ModelState.IsValid) return BadRequest(ModelState);
 
-            var isUpdated = _tripService.Update(id, updatedTrip);
+            var isUpdated = await _tripService.UpdateAsync(id, updatedTripDto);
             if (!isUpdated) return NotFound($"Trip with ID {id} not found.");
 
             // 204 No Content is the standard RESTful response for a successful PUT request
@@ -114,9 +115,9 @@ namespace TravelAPI.Controllers
         /// <returns>A 204 No Content response on success, or 404 Not Found if the trip doesn't exist.</returns>
         [Authorize] // Requires a valid JWT token
         [HttpDelete("{id}")]
-        public IActionResult Delete(int id)
+        public async Task<IActionResult> Delete(int id)
         {
-            var isDeleted = _tripService.Delete(id);
+            var isDeleted = await _tripService.DeleteAsync(id);
             if (!isDeleted) return NotFound($"Trip with ID {id} not found.");
 
             return NoContent();
@@ -130,12 +131,12 @@ namespace TravelAPI.Controllers
         /// <returns>A 200 OK response with the created activity, or a 404 Not Found if the trip doesn't exist.</returns>
         [Authorize] // Requires a valid JWT toke
         [HttpPost("{tripId}/activities")]
-        public IActionResult AddActivity(int tripId, [FromBody] Activity activity)
+        public async Task<IActionResult> AddActivity(int tripId, [FromBody] ActivityDto activityDto)
         {
             // Check if the provided model is valid (e.g., Name and Cost are present and valid)
             if (!ModelState.IsValid) return BadRequest(ModelState);
 
-            var createdActivity = _tripService.AddActivity(tripId, activity);
+            var createdActivity = await _tripService.AddActivityAsync(tripId, activityDto);
 
             // If the service returns null, the parent trip does not exist
             if (createdActivity == null) return NotFound($"Trip with ID {tripId} not found.");

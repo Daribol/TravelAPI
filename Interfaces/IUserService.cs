@@ -8,16 +8,16 @@ namespace TravelAPI.Interfaces
     /// </summary>
     public interface IUserService
     {
-        User Authenticate(string username, string password);
+        Task<User> AuthenticateAsync(string username, string password);
 
-        List<UserResponseDto> GetAll();
+        Task<List<UserResponseDto>> GetAllAsync();
 
-        UserResponseDto GetById(int id);
+        Task<UserResponseDto> GetByIdAsync(int id);
 
-        UserResponseDto Create(UserRegisterDto registerDto);
+        Task<UserResponseDto> CreateAsync(UserRegisterDto registerDto);
 
-        bool Update(int id, UserRegisterDto updatedUserDto);
+        Task<bool> UpdateAsync(int id, UserRegisterDto updatedUserDto);
 
-        bool Delete(int id);
+        Task<bool> DeleteAsync(int id);
     }
 }

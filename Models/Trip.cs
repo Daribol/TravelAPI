@@ -13,6 +13,7 @@ namespace TravelAPI.Models
         [Required]
         public string Description { get; set; }
         public int UserId { get; set; }
+        public User User { get; set; }
         public List<Activity> Activities { get; set; } = new List<Activity>();
     }
 }

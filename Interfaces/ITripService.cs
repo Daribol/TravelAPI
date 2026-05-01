@@ -6,12 +6,11 @@ namespace TravelAPI.Interfaces
     public interface ITripService
     {
         Task<DestinationInfoContract> GetSmartInfoAsync(string country);
-        List<Trip> GetAll();
-        Trip GetById(int id);
-        List<Trip> GetUsersTrips(string username);
-        Trip Create(Trip trip);
-        bool Update(int id, Trip updatedTrip);
-        bool Delete(int id);
-        Activity AddActivity(int tripId, Activity activity);
+        Task<List<TripResponseDto>> GetAllAsync();
+        Task<TripResponseDto> GetByIdAsync(int id);
+        Task<TripResponseDto> CreateAsync(TripCreateDto trip);
+        Task<bool> UpdateAsync(int id, TripCreateDto updatedTrip);
+        Task<bool> DeleteAsync(int id);
+        Task<ActivityDto> AddActivityAsync(int tripId, ActivityDto activity);
     }
 }
