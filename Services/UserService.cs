@@ -3,23 +3,35 @@ using TravelAPI.Data;
 using TravelAPI.DTOs;
 using TravelAPI.Interfaces;
 using TravelAPI.Models;
+using Microsoft.AspNetCore.Identity;
 
 namespace TravelAPI.Services
 {
     public class UserService : IUserService
     {
         private readonly TravelDbContext _context;
+        private readonly PasswordHasher<User> _passwordHasher;
 
         public UserService(TravelDbContext context)
         {
             _context = context;
+            _passwordHasher = new PasswordHasher<User>();
         }
 
         // 1. Аутентикира потребителя (връща целия модел за нуждите на AuthController)
         public async Task<User> AuthenticateAsync(string username, string password)
         {
             // Тук търсим директно в SQL таблицата Users
-            return await _context.Users.FirstOrDefaultAsync(u => u.Username == username && u.Password == password);
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
+
+            if (user == null) return null;
+
+            // Вече не сравняваме стрингове, а проверяваме хаша
+            var result = _passwordHasher.VerifyHashedPassword(user, user.Password, password);
+
+            if (result == PasswordVerificationResult.Failed) return null;
+
+            return user;
         }
 
         // 2. Връща списък от всички потребители, но само като безопасни DTO-та
@@ -54,24 +66,27 @@ namespace TravelAPI.Services
         // 4. Създава нов потребител от регистрационни данни
         public async Task<UserResponseDto> CreateAsync(UserRegisterDto registerDto)
         {
+            string finalRole = "Regular";
+
+            if (!string.IsNullOrWhiteSpace(registerDto.Role) && registerDto.Role != "string")
+            {
+                finalRole = registerDto.Role;
+            }
+
             var user = new User
             {
                 Username = registerDto.Username,
                 Email = registerDto.Email,
-                Password = registerDto.Password, // В реална среда тук се прави Hash!
-                Role = string.IsNullOrEmpty(registerDto.Role) ? "Regular" : registerDto.Role
+                Role = finalRole
             };
 
-            await _context.Users.AddAsync(user);
+            // Хешираме паролата преди да я запишем
+            user.Password = _passwordHasher.HashPassword(user, registerDto.Password);
+
+            _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
-            return new UserResponseDto
-            {
-                Id = user.Id,
-                Username = user.Username,
-                Email = user.Email,
-                Role = user.Role
-            };
+            return new UserResponseDto { Id = user.Id, Username = user.Username, Email = user.Email, Role = user.Role };
         }
 
         // 5. Обновява съществуващ потребител
@@ -86,7 +101,7 @@ namespace TravelAPI.Services
 
             if (!string.IsNullOrEmpty(updatedUserDto.Password))
             {
-                user.Password = updatedUserDto.Password;
+                user.Password = _passwordHasher.HashPassword(user, updatedUserDto.Password);
             }
 
             await _context.SaveChangesAsync();

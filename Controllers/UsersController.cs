@@ -33,6 +33,7 @@ namespace TravelAPI.Controllers
         }
 
         [HttpPost]
+        [AllowAnonymous]
         public async Task<IActionResult> Create([FromBody] UserRegisterDto registerDto)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
