@@ -140,30 +140,47 @@ namespace TravelAPI.Services
             var weatherBaseUrl = _configuration["ApiUrls:OpenMeteo"];
             var exchangeBaseUrl = _configuration["ApiUrls:ExchangeRates"];
 
-            // 1. Get Country Data (Coordinates and Currency)
-            var countryData = await _httpClient.GetStringAsync($"{countryBaseUrl}{country}");
-            var countryNode = JsonNode.Parse(countryData)?[0];
-            var lat = countryNode?["latlng"]?[0]?.GetValue<double>();
-            var lng = countryNode?["latlng"]?[1]?.GetValue<double>();
-            var currencyCode = countryNode?["currencies"]?.AsObject().FirstOrDefault().Key;
-
-            // 2. Get Weather Data based on coordinates
-            var weatherData = await _httpClient.GetStringAsync($"{weatherBaseUrl}?latitude={lat}&longitude={lng}&current_weather=true");
-            var temp = JsonNode.Parse(weatherData)?["current_weather"]?["temperature"]?.GetValue<double>();
-
-            // 3. Get Currency Exchange Rates
-            var currencyData = await _httpClient.GetStringAsync(exchangeBaseUrl);
-            var rate = JsonNode.Parse(currencyData)?["rates"]?[currencyCode]?.GetValue<double>() ?? 0;
-
-            // Map gathered data to the DTO
-            return new DestinationInfoContract
+            try
             {
-                CountryName = countryNode?["name"]?["common"]?.ToString(),
-                Capital = countryNode?["capital"]?[0]?.ToString(),
-                LocalWeather = $"{temp}°C (Coordinates: {lat}, {lng})",
-                CurrencyExchange = $"1 BGN = {rate} {currencyCode}",
-                BudgetCalculation = $"100 BGN = {Math.Round(100 * rate, 2)} {currencyCode}."
-            };
+                // 1. Get Country Data (Coordinates and Currency)
+                var countryResponse = await _httpClient.GetAsync($"{countryBaseUrl}{country}");
+                if (!countryResponse.IsSuccessStatusCode) return null;
+
+                var countryData = await countryResponse.Content.ReadAsStringAsync();
+                var countryNode = JsonNode.Parse(countryData)?[0];
+
+                if (countryNode == null) return null;
+
+                var lat = countryNode?["latlng"]?[0]?.GetValue<double>() ?? 0;
+                var lng = countryNode?["latlng"]?[1]?.GetValue<double>() ?? 0;
+                var currencyCode = countryNode?["currencies"]?.AsObject().FirstOrDefault().Key;
+                var countryName = countryNode["name"]?["common"]?.ToString();
+                var capital = countryNode["capital"]?[0]?.ToString();
+
+                // 2. Get Weather Data based on coordinates
+                var weatherUrl = $"{weatherBaseUrl}?latitude={lat.ToString().Replace(',', '.')}&longitude={lng.ToString().Replace(',', '.')}&current_weather=true";
+                var weatherData = await _httpClient.GetStringAsync(weatherUrl);
+                var temp = JsonNode.Parse(weatherData)?["current_weather"]?["temperature"]?.GetValue<double>();
+
+                // 3. Get Currency Exchange Rates
+                var currencyData = await _httpClient.GetStringAsync(exchangeBaseUrl);
+                var rate = JsonNode.Parse(currencyData)?["rates"]?[currencyCode]?.GetValue<double>() ?? 0;
+
+                // Map gathered data to the DTO
+                return new DestinationInfoContract
+                {
+                    CountryName = countryName,
+                    Capital = capital,
+                    LocalWeather = $"{temp}°C (Coordinates: {lat}, {lng})",
+                    CurrencyExchange = $"1 BGN = {rate} {currencyCode}",
+                    BudgetCalculation = $"100 BGN = {Math.Round(100 * rate, 2)} {currencyCode}."
+                };
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error in GetSmartInfoAsync: {ex.Message}");
+                return null;
+            }
         }
     }
 }
