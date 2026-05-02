@@ -130,54 +130,70 @@ namespace TravelAPI.Services
         }
 
         /// <summary>
-        /// Orchestrates calls to multiple external APIs (RestCountries, OpenMeteo, ExchangeRates)
-        /// to provide a comprehensive info package for a destination.
+        /// Orchestrates data from three external APIs to provide comprehensive destination insights.
         /// </summary>
+        /// <param name="country">The name of the country to research.</param>
+        /// <returns>A DestinationInfoContract containing weather, currency, and geographical data.</returns>
         public async Task<DestinationInfoContract> GetSmartInfoAsync(string country)
         {
-            // Fetch API base URLs from configuration
+            // 1. Retrieve base URLs from configuration (User Secrets or AppSettings)
             var countryBaseUrl = _configuration["ApiUrls:RestCountries"];
             var weatherBaseUrl = _configuration["ApiUrls:OpenMeteo"];
             var exchangeBaseUrl = _configuration["ApiUrls:ExchangeRates"];
 
             try
             {
-                // 1. Get Country Data (Coordinates and Currency)
+                // --- STEP 1: FETCH COUNTRY DATA ---
+                // Get general information such as capital, coordinates, and currency codes
                 var countryResponse = await _httpClient.GetAsync($"{countryBaseUrl}{country}");
+
+                // If the country is not found or the API is down, return null
                 if (!countryResponse.IsSuccessStatusCode) return null;
 
                 var countryData = await countryResponse.Content.ReadAsStringAsync();
+
+                // Use JsonNode for dynamic parsing (index [0] as RestCountries returns an array)
                 var countryNode = JsonNode.Parse(countryData)?[0];
 
                 if (countryNode == null) return null;
 
+                // Extract coordinates for weather and currency code for exchange rates
                 var lat = countryNode?["latlng"]?[0]?.GetValue<double>() ?? 0;
                 var lng = countryNode?["latlng"]?[1]?.GetValue<double>() ?? 0;
                 var currencyCode = countryNode?["currencies"]?.AsObject().FirstOrDefault().Key;
                 var countryName = countryNode["name"]?["common"]?.ToString();
                 var capital = countryNode["capital"]?[0]?.ToString();
 
-                // 2. Get Weather Data based on coordinates
+                // --- STEP 2: FETCH CURRENT WEATHER ---
+                // Ensure coordinates use a dot as a decimal separator to prevent API errors
                 var weatherUrl = $"{weatherBaseUrl}?latitude={lat.ToString().Replace(',', '.')}&longitude={lng.ToString().Replace(',', '.')}&current_weather=true";
+
+                // Execute the weather data request
                 var weatherData = await _httpClient.GetStringAsync(weatherUrl);
                 var temp = JsonNode.Parse(weatherData)?["current_weather"]?["temperature"]?.GetValue<double>();
 
-                // 3. Get Currency Exchange Rates
+                // --- STEP 3: FETCH CURRENCY EXCHANGE RATES ---
+                // Fetch latest rates relative to Bulgarian Lev (BGN)
                 var currencyData = await _httpClient.GetStringAsync(exchangeBaseUrl);
+
+                // Extract the specific exchange rate for the target country's currency
                 var rate = JsonNode.Parse(currencyData)?["rates"]?[currencyCode]?.GetValue<double>() ?? 0;
 
-                // Map gathered data to the DTO
+                // --- FINAL MAPPING ---
+                // Combine all data points into the final Data Transfer Object (DTO)
                 return new DestinationInfoContract
                 {
                     CountryName = countryName,
                     Capital = capital,
                     LocalWeather = $"{temp}°C (Coordinates: {lat}, {lng})",
                     CurrencyExchange = $"1 BGN = {rate} {currencyCode}",
+                    // Round the budget calculation to two decimal places for better readability
                     BudgetCalculation = $"100 BGN = {Math.Round(100 * rate, 2)} {currencyCode}."
                 };
             }
             catch (Exception ex)
             {
+                // Log the exception (could be expanded with ILogger for production)
                 Console.WriteLine($"Error in GetSmartInfoAsync: {ex.Message}");
                 return null;
             }

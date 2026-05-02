@@ -7,6 +7,10 @@ using Microsoft.AspNetCore.Identity;
 
 namespace TravelAPI.Services
 {
+    /// <summary>
+    /// Service responsible for user management, including authentication, 
+    /// registration, and CRUD operations.
+    /// </summary>
     public class UserService : IUserService
     {
         private readonly TravelDbContext _context;
@@ -15,18 +19,22 @@ namespace TravelAPI.Services
         public UserService(TravelDbContext context)
         {
             _context = context;
+            // Initialize the built-in ASP.NET Identity password hasher
             _passwordHasher = new PasswordHasher<User>();
         }
 
-        // 1. Аутентикира потребителя (връща целия модел за нуждите на AuthController)
+        /// <summary>
+        /// Authenticates a user by verifying the hashed password against the database.
+        /// Returns the full User entity for the Authentication controller's needs.
+        /// </summary>
         public async Task<User> AuthenticateAsync(string username, string password)
         {
-            // Тук търсим директно в SQL таблицата Users
+            // Retrieve user by username from the SQL database
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == username);
 
             if (user == null) return null;
 
-            // Вече не сравняваме стрингове, а проверяваме хаша
+            // Verify the provided plain-text password against the stored hash
             var result = _passwordHasher.VerifyHashedPassword(user, user.Password, password);
 
             if (result == PasswordVerificationResult.Failed) return null;
@@ -34,7 +42,9 @@ namespace TravelAPI.Services
             return user;
         }
 
-        // 2. Връща списък от всички потребители, но само като безопасни DTO-та
+        /// <summary>
+        /// Retrieves all users from the database, mapped to secure DTOs.
+        /// </summary>
         public async Task<List<UserResponseDto>> GetAllAsync()
         {
             return await _context.Users
@@ -48,7 +58,9 @@ namespace TravelAPI.Services
                 .ToListAsync();
         }
 
-        // 3. Връща конкретен потребител по ID (DTO формат)
+        /// <summary>
+        /// Retrieves a specific user by their ID, mapped to a secure DTO.
+        /// </summary>
         public async Task<UserResponseDto> GetByIdAsync(int id)
         {
             var user = await _context.Users.FindAsync(id);
@@ -63,9 +75,12 @@ namespace TravelAPI.Services
             };
         }
 
-        // 4. Създава нов потребител от регистрационни данни
+        /// <summary>
+        /// Creates a new user, hashes their password, and saves them to the database.
+        /// </summary>
         public async Task<UserResponseDto> CreateAsync(UserRegisterDto registerDto)
         {
+            // Default role is "Regular" if none is provided or if Swagger default "string" is sent
             string finalRole = "Regular";
 
             if (!string.IsNullOrWhiteSpace(registerDto.Role) && registerDto.Role != "string")
@@ -80,7 +95,7 @@ namespace TravelAPI.Services
                 Role = finalRole
             };
 
-            // Хешираме паролата преди да я запишем
+            // Securely hash the password before saving
             user.Password = _passwordHasher.HashPassword(user, registerDto.Password);
 
             _context.Users.Add(user);
@@ -89,7 +104,9 @@ namespace TravelAPI.Services
             return new UserResponseDto { Id = user.Id, Username = user.Username, Email = user.Email, Role = user.Role };
         }
 
-        // 5. Обновява съществуващ потребител
+        /// <summary>
+        /// Updates an existing user's details and re-hashes the password if a new one is provided.
+        /// </summary>
         public async Task<bool> UpdateAsync(int id, UserRegisterDto updatedUserDto)
         {
             var user = await _context.Users.FindAsync(id);
@@ -99,6 +116,7 @@ namespace TravelAPI.Services
             user.Email = updatedUserDto.Email;
             user.Role = updatedUserDto.Role;
 
+            // Only update the password if a new one is explicitly provided
             if (!string.IsNullOrEmpty(updatedUserDto.Password))
             {
                 user.Password = _passwordHasher.HashPassword(user, updatedUserDto.Password);
@@ -108,7 +126,9 @@ namespace TravelAPI.Services
             return true;
         }
 
-        // 6. Изтрива потребител
+        /// <summary>
+        /// Removes a user from the database by their ID.
+        /// </summary>
         public async Task<bool> DeleteAsync(int id)
         {
             var user = await _context.Users.FindAsync(id);
