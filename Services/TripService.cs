@@ -186,9 +186,9 @@ namespace TravelAPI.Services
                     CountryName = countryName,
                     Capital = capital,
                     LocalWeather = $"{temp}°C (Coordinates: {lat}, {lng})",
-                    CurrencyExchange = $"1 BGN = {rate} {currencyCode}",
+                    CurrencyExchange = $"1 EUR = {rate} {currencyCode}",
                     // Round the budget calculation to two decimal places for better readability
-                    BudgetCalculation = $"100 BGN = {Math.Round(100 * rate, 2)} {currencyCode}."
+                    BudgetCalculation = $"100 EUR = {Math.Round(100 * rate, 2)} {currencyCode}."
                 };
             }
             catch (Exception ex)
